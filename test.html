@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="https://www.gstatic.com/firebasejs/5.6.0/firebase.js"></script>
+    <script>
+        var {initializeApp, database} = firebase;
+        class MyAppDatabase {
+            constructor(fbsConfig, config) {
+                initializeApp(fbsConfig);
+                this.config = config;
+                this.database = database();
+                this.chatRef = this.database.ref(this.config.chatPath);
+                this.driverRef = this.database.ref(this.config.driverPath);
+                let functionsForBind = [
+                    "addMockData",
+                    "createDriver",
+                    "getAllDrivers",
+                    "registerForChat",
+                    "registerForLocation",
+                    "saveDriverLocation",
+                    "chatWithDriver"
+                ];
+                functionsForBind.map(k => this[k]=this[k].bind(this))
+            }
+            addMockData() {
+                let avatar = 'https://www.library.caltech.edu/sites/default/files/styles/headshot/public/default_images/user.png'
+                let data = [
+                    { key: 'Faizan', long: 67.064827, lat: 24.999886 },
+                    { key: 'Ali', long: 78.488330, lat: 17.331500 },
+                    { key: 'Ahmed', long: 29.905810, lat: 31.198910 },
+                    { key: 'Raja', long: 66.988060, lat: 24.871940 },
+                    { key: 'Nabeel', long: 174.797012, lat: -41.244411 },
+                    { key: 'Asif', long: 67.064827, lat: 24.999886 },
+                    { key: 'Izyan', long: 66.988060, lat: 24.871940 },
+                    { key: 'Usman', long: 66.988060, lat: 24.871940 },
+                    { key: 'Abdul', long: -121.265700, lat: 38.781900 },
+                    { key: 'kashif', long: 66.988060, lat: 24.871940 }
+                ].map(({ key: name, long, lat }) => ({ name, avatar, location: { long, lat } })).map(this.createDriver)
+            }
+            createDriver(driver) {
+                let driverObj = this.driverRef.push()
+                return driverObj.set({ ...driver, key: driverObj.key })
+            }
+            getAllDrivers() {
+                return this.driverRef.once('value').then(a => Object.values(a.val() || {}))
+            }
+            registerForChat(driverKey, callback) {
+                let ref = this.chatRef.child(driverKey);
+                function call(snap) {
+                    let values = snap.val();
+                    callback(Object.keys(values).map(k => ({
+                        key: k,
+                        ...values[k]
+                    })))
+                }
+                ref.on('value', call)
+                return () => ref.off('value', call)
+            }
+            registerForLocation(driverKey, callback) {
+                let ref = this.driverRef.child(driverKey).child('location');
+                function call(snap) {
+                    let value = snap.val();
+                    callback(value)
+                }
+                ref.on('value', call)
+                return () => ref.off('value', call)
+            }
+            saveDriverLocation(driverKey, location) {
+                let ref = this.driverRef.child(driverKey).child(location);
+                ref.set({
+                    updated: Date.now(),
+                    ...location
+                })
+            }
+            chatWithDriver(driverKey, chat) {
+                return this.chatRef.child(driverKey).push({ ...chat, timestamp: Date.now() })
+            }
+        };
+        const fbsConfig = {
+            apiKey: "AIzaSyAJkRfVjbIyLXWH-MWrm4u8CakZS1ZLTnI",
+            authDomain: "locationtrack-5fd9d.firebaseapp.com",
+            databaseURL: "https://locationtrack-5fd9d.firebaseio.com",
+            projectId: "locationtrack-5fd9d",
+            storageBucket: "locationtrack-5fd9d.appspot.com",
+            messagingSenderId: "116011094420"
+        };
+        const config = {
+            chatPath: 'chat',
+            driverPath: 'driver',
+        };
+        let appInctence = new MyAppDatabase(fbsConfig, config);
+    </script>
+</body>
+
+</html>
